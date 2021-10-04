@@ -29,11 +29,11 @@ app.use(cors())
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
-  program1();
-  setInterval(program2, 1000000)
-  program2();
-  program3();
-  search('tan');
+  // program1();
+  // setInterval(program2, 1000000)
+  // program2();
+  // program3();
+  // search('tan');
   ratio();
 })
 
@@ -140,20 +140,22 @@ const deactivate = () => {
   })
 }
 
-const ratio = () => {
+const ratio = async () => {
   let ratioData={};
-  History.find({})
+  History.find( { $expr: { $lt: [ parseInt("bikes_available"),"stands_available"] } } )
   .then(res => {
-   // console.log(res)
+   console.log(res)
 
-    res.forEach(data=>{
-    let singleRation = data.bikes_available/data.stands_available;
-    if(singleRation<0.2){
-     console.log(new Date(data.date).getTime());
+    // res.forEach(data=>{
+    // let singleRation = data.bikes_available/data.stands_available;
+    // if(singleRation<0.2 ){//&& parseInt(new Date(data.date).getHours())<19 //&& parseInt(new Date(data.date).getHours())>=18  
+    // Record.find({"station_id":data.station_id}).then(data=>{
+    //   console.log(data)
+    // })
      
-    }
+    // }
      
-    })
+    // })
 
 
 
