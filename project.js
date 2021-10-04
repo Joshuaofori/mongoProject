@@ -58,7 +58,9 @@ const start = () => {
       case '3': 
         console.log(`You selected program ${number}`);
         console.log(`Find stations available`);
-        program3()
+        const long = 3.0575024;
+        const lat = 50.6288697;
+        program3([long, lat])
         break
       case '4': 
         console.log(`You selected program ${number}`);
@@ -73,7 +75,7 @@ const start = () => {
       case '6': 
         console.log(`You selected program ${number}`);
         console.log(`Business Program - Deactivate station`);
-        deactivate()
+        deactivate('DE GAULLE')
         break
       case '7': 
         console.log(`You selected program ${number}`);
@@ -143,7 +145,7 @@ const program2 = async () => {
   });
 }
 
-const program3 = async () => {
+const program3 = async (coordinates) => {
   program1()
   .then(() => {
     Record.find(
@@ -152,7 +154,7 @@ const program3 = async () => {
           $near: {
             $geometry: {
               type: "Point",
-              coordinates: [ 3.0575024, 50.6288697 ]
+              coordinates: coordinates
             },
             $maxDistance: 300,
             $minDistance: 0
@@ -216,9 +218,9 @@ const update_station = (station_name,new_station_name) => {
   .catch(err => console.log(err))
 }
 
-const deactivate = () => {
+const deactivate = (station_name) => {
   let station_geo_point;
-  Record.findOne({"station_name": 'DE GAULLE'}, '-_id geometry.coordinates')  
+  Record.findOne({"station_name": station_name}, '-_id geometry.coordinates')  
   .then(res => {
     console.log(res.geometry.coordinates)
     station_geo_point = res.geometry.coordinates;
