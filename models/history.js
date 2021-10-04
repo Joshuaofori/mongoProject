@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 const HistorySchema = new mongoose.Schema({
-    bikes_available: String, 
+    bikes_available: Number, 
     stands_available: Number,
     is_operating: Boolean,
     is_connected: Boolean,

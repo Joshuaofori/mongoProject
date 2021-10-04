@@ -2,9 +2,10 @@ import axios from 'axios';
 import mongoose from 'mongoose'
 import express from 'express'
 import cors from 'cors';
+import readline from 'readline'
+import Record from './models/record.js'
+import History from './models/history.js'
 
-
-const url = "mongodb://localhost:27017/";
 const uri = "mongodb+srv://anhydrous:JO0437anhydrous@cluster0.u7pbz.mongodb.net/apiDatabase?retryWrites=true&w=majority";
 
 mongoose.connect(uri, {
@@ -12,10 +13,6 @@ mongoose.connect(uri, {
         useUnifiedTopology: true,
 })
 .then(() => console.log('Mongodb Database is Connected'))
-
-import Record from './models/record.js'
-import History from './models/history.js'
-
 
 
 const data_url = 'https://opendata.lillemetropole.fr/api/records/1.0/search/?dataset=vlille-realtime&q=&rows=3000&facet=libelle&facet=nom&facet=commune&facet=etat&facet=type&facet=etatconnection'
@@ -29,13 +26,72 @@ app.use(cors())
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
-  // program1();
-  // setInterval(program2, 1000000)
-  // program2();
-  // program3();
-  // search('tan');
-  ratio();
+  start();
 })
+const start = () => {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+   
+  rl.question(`Please select a program and press enter 
+  \n1. Get Data from API
+  \n2. Refresh and store live data
+  \n3. Find stations available
+  \n4. Business Program - Search by name
+  \n5. Business Program - Update
+  \n6. Business Program - Deactivate station
+  \n7. Business Program - Find ratio given a time range
+  \n8. Business Program - Delete
+  `, number => {
+    switch (number) {
+      case '1': 
+        console.log(`You selected program ${number}`);
+        console.log(`Get Data from API`);
+        program1()
+        break
+      case '2': 
+        console.log(`You selected program ${number}`);
+        console.log(`Refresh and store live data`);
+        setInterval(program2, 1000)
+        break
+      case '3': 
+        console.log(`You selected program ${number}`);
+        console.log(`Find stations available`);
+        program3()
+        break
+      case '4': 
+        console.log(`You selected program ${number}`);
+        console.log(`Business Program - Search by name`);
+        search('TAN')
+        break
+      case '5': 
+        console.log(`You selected program ${number}`);
+        console.log(`Business Program - Update Station`);
+        update_station('RUE ROYALE', 'RUE ROYALES')
+        break
+      case '6': 
+        console.log(`You selected program ${number}`);
+        console.log(`Business Program - Deactivate station`);
+        deactivate()
+        break
+      case '7': 
+        console.log(`You selected program ${number}`);
+        console.log(`Business Program - Find ratio given a time range`);
+        ratio()
+        break
+      case '8': 
+        console.log(`You selected program ${number}`);
+        console.log(`Business Program - Delete Station`);
+        delete_station()
+        break
+      default:
+        rl.close();
+        start();
+    }
+    rl.close();
+  });
+}
 
 const program1 = async () => {
   return axios.get(data_url)
@@ -115,8 +171,6 @@ const program3 = async () => {
   .catch(error => console.log(error));
 }
 
-
-
 const search = (search_string) => {
   const search_string_to_uppercase = search_string.toUpperCase();
   Record.find({"station_name": {$regex: search_string_to_uppercase}}, '-_id station_name')
@@ -129,11 +183,68 @@ const search = (search_string) => {
   })
 }
 
-const deactivate = () => {
-  Record.updateMany({}, {$set: { tpe: false}})
+const delete_station = (station_name) => {
+  Record.findOne({"station_name": station_name})
   .then(res => {
-    console.log(res)
+    if(res){
+      Record.deleteOne({'station_id': res.station_id}).then(() => { console.log('Deleted from Records')}).catch( err => { console.log(err)})
+      History.deleteMany({'station_id':res.station_id}).then(() => { console.log('Deleted from History')}).catch( err => { console.log(err)})
+    }
+    else{
+      console.log('No station found')
+    }
 
+  })
+  .catch(err => console.log(err))
+}
+
+const update_station = (station_name,new_station_name) => {
+  Record.findOne({"station_name": station_name})
+  .then(res => {
+    if(res){
+      Record.updateOne(
+        {'station_id': res.station_id},
+        {$set:{'station_name': new_station_name}}
+      )
+      .then(() => {console.log(`Station ${station_name} updated to ${new_station_name}`)})
+      .catch(err => { console.log(err)})
+    }
+    else {
+      console.log('No station found')
+    } 
+   })
+  .catch(err => console.log(err))
+}
+
+const deactivate = () => {
+  let station_geo_point;
+  Record.findOne({"station_name": 'DE GAULLE'}, '-_id geometry.coordinates')  
+  .then(res => {
+    console.log(res.geometry.coordinates)
+    station_geo_point = res.geometry.coordinates;
+
+    Record.find({
+      'geometry':{
+          '$geoWithin':{
+              '$center':[station_geo_point,0.008],
+          }
+      }
+    })
+    .then(response => {
+      console.log(response)
+      response.forEach(station => {
+        Record.updateMany({ station_id: station.station_id }, {$set: { tpe: false}})
+        .then(() => {
+          console.log("Deactivated")
+        })
+        .catch(err => {
+          console.log(err)
+        })
+      });
+    })
+    .catch(err => {
+      console.log(err)
+    })
   })
   .catch(err => {
     console.log(err)
@@ -141,26 +252,25 @@ const deactivate = () => {
 }
 
 const ratio = async () => {
-  let ratioData={};
-  History.find( { $expr: { $lt: [ parseInt("bikes_available"),"stands_available"] } } )
+  History.find( 
+    { $expr: 
+      { 
+        $lt: [ 
+          {$divide: ["$bikes_available", { $cond: [ { $eq: [ {$add: ["$stands_available", "$bikes_available"]}, 0 ] }, 1,  {$add: ["$stands_available", "$bikes_available"]}]}]},
+          0.2
+        ] 
+      },
+      "date": {
+        $gte:"2021-10-04T16:12:11.000+00:00",
+        $lt: "2021-10-04T17:06:15.000+00:00"
+      }
+    }
+  )
   .then(res => {
    console.log(res)
-
-    // res.forEach(data=>{
-    // let singleRation = data.bikes_available/data.stands_available;
-    // if(singleRation<0.2 ){//&& parseInt(new Date(data.date).getHours())<19 //&& parseInt(new Date(data.date).getHours())>=18  
-    // Record.find({"station_id":data.station_id}).then(data=>{
-    //   console.log(data)
-    // })
-     
-    // }
-     
-    // })
-
-
-
+   console.log(`${res.length} stations found`)
   })
   .catch(err => {
     console.log(err)
-
-  })}
+  })
+}
