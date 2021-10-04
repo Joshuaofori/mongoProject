@@ -53,7 +53,7 @@ const start = () => {
       case '2': 
         console.log(`You selected program ${number}`);
         console.log(`Refresh and store live data`);
-        setInterval(program2, 1000)
+        setInterval(program2, 10000)
         break
       case '3': 
         console.log(`You selected program ${number}`);
