@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mongodb Project</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script>
+        var stations = document.getElementById("stations");
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(find);
+            } else { 
+                stations.innerHTML = "Geolocation is not supported by this browser.";
+            }
+        }
+        find = (position) => {
+            console.log(position.coords.latitude);
+            console.log(position.coords.longitude);
+
+            const url = 'http://localhost:3000/find';
+            axios.get(url, { params: { lat: position.coords.latitude , long: position.coords.longitude} })
+            .then(response => {
+                const filter = response.data.map(station => {
+                    return station.fields.nom
+                });
+                var stations = document.getElementById("stations");
+                stations.innerHTML = filter.toString();
+            })
+            .catch(error => console.log(error))
+        }
+    </script>
+</head>
+<body>
+    <button onclick="getLocation()">Find Stations</button>
+    <p id="stations"></p>
+</body>
+</html>
